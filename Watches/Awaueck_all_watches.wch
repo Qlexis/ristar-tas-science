@@ -1,0 +1,7 @@
+SystemID GEN
+00C8E6	b	h	1	68K RAM	
+00C8FC	w	h	1	68K RAM	
+00E62E	w	u	1	68K RAM	
+0	S	_	1		
+00C906	b	u	1	68K RAM	health
+
