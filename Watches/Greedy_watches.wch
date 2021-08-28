@@ -1,0 +1,12 @@
+SystemID GEN
+00C9D6	b	h	1	68K RAM	state
+00C9DC	w	s	1	68K RAM	x speed
+00C9DE	w	s	1	68K RAM	y speed
+0	S	_	1		
+00E633	b	u	1	68K RAM	1 = final
+00E634	w	u	1	68K RAM	HEAD
+00E636	w	h	1	68K RAM	random x pos
+00E63A	w	h	1	68K RAM	random y pos
+00EA1E	d	h	1	68K RAM	rng 1
+00EA22	d	h	1	68K RAM	rng 2
+

@@ -1,0 +1,8 @@
+SystemID GEN
+00E6BC	w	u	1	68K RAM	malfunctions
+00E6BA	w	u	1	68K RAM	hit counter
+00E6B8	w	u	1	68K RAM	hit timer
+00E6AE	w	u	1	68K RAM	attack
+0	S	_	1		
+00CA76	b	h	1	68K RAM	
+
