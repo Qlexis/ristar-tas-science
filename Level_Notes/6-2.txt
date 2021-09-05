@@ -1,0 +1,36 @@
+Addresses (in ILOVEU)
+=====================
+
+E62A: 2 byte, unsigned. Automaton 2 room number (E628 on US ROM) (see below)
+
+Room order
+==========
+
+* Verified identical on both JP and US ROMs.
+
+Room #1:    0   # Simple gem tutorial
+Room #2:    2   # Green spring enemy
+Room #3:    5   # Moving platform tutorial
+Room #4:    4   # Foreground/background #1
+Room #5:    7   # Spike pole #1
+Room #6:    1   # Star chest
+Room #7:   18   # Robot
+Room #8:    6   # Liz strat room
+Room #9:   10   # Wallpaper peeling room
+Room #10:   9   # Rotating poles
+
+Top route: 15   # Extra life room
+
+Room #11:  13   # Turret room
+Room #12:   3   # Falling orblet room
+Room #13:  16   # Star chest
+Room #14:  12   # Foreground/background #2
+Room #15:   8   # Spike pole #2
+
+Top route: 17   # Secret stage pole
+
+Room #16:  14   # End room
+
+(teleporter next to end pole goes back to room #15 (8))
+
+Room 11 does not exist; attempting to access it by freezing E62A locks the game.
