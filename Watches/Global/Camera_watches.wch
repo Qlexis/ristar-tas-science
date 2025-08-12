@@ -1,0 +1,12 @@
+SystemID GEN
+00F030	w	s	1	68K RAM	Camera X
+00F034	w	s	1	68K RAM	Camera Y
+00F020	w	s	1	68K RAM	Camera X (processed for next frame)
+00F024	w	s	1	68K RAM	Camera Y (processed for next frame)
+00F028	w	s	1	68K RAM	Camera X Velocity
+00F02C	w	s	1	68K RAM	Camera Y Velocity
+00F004	w	s	1	68K RAM	Camera X (lock)
+00F00C	w	s	1	68K RAM	Camera Y (lock)
+00F000	w	s	1	68K RAM	Camera X (max)
+00F008	w	s	1	68K RAM	Camera Y (max)
+
