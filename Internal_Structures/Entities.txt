@@ -1,0 +1,98 @@
+The game is built on the concept of "entities" or "objects".  These
+entities store data in one of 83 blocks (80 bytes each) in RAM from
+&FFC600 to &FFDFEE - thus, the first block is at &FFC600; the second is
+at &FFC650 (80 bytes on); the third is at &FFC6A0; etc.
+
+(For this document, the term "objects" will be used to refer to the
+actual element in the level data itself, and "entities" to refer to the
+live, in-play version of these objects and their memory storage.)
+
+Any address in RAM within this range will be associated with a specific
+entity (although that entity may be stale; to my knowledge, old entity
+data is not erased when no longer in use), and the formula to get an
+entity base address from an arbitrary address within that range is:
+
+  <address> - ((<address> - 48) % 80)
+
+(Ristar himself doesn't use an entity block, instead storing 128 bytes
+of data starting at &FFC000 using a slightly different layout.)
+
+From what has been gathered so far, objects in the game that can have
+any kind of interaction, or animations that happen over time, will be
+dynamically (ie. while the game is running, not in a pre-determined
+fashion) assigned one of these entity blocks. Thus, the block that a
+particular object gets will not necessarily be the same from run to run,
+or even necessarily within the same run. The dynamically-allocated
+nature of these blocks is the basis for how Noodle Skip works.
+
+(For example, if the player doubles back on themselves after an entity
+is unloaded from memory, the same object can respawn with a different
+entity block assigned.)
+
+Entities seem to be in one of five linked lists. The starting (or
+ending?) block of each of these lists is pointed to by these five RAM
+addresses (2 bytes each):
+
+&FFDFF0: This list contains mainly particles and set pieces. Green in
+         the hitbox viewer.
+&FFDFF2: This list contains mainly enemies. Red in the hitbox viewer.
+&FFDFF4: No objects have been seen that end up on this list yet,
+         although there does exist valid entity data. More investigation
+         needed. Cyan in the hitbox viewer.
+&FFDFF6: This list seems to contain HUD elements. Formerly purple in the
+         hitbox viewer, but not shown currently.
+&FFDFF8: This list contains mainly secret walls and background
+         animations. Yellow in the hitbox viewer.
+
+Note that the list descriptions are only a general overview; sometimes
+entities show up in lists you don't expect!
+
+&FFDFFA is a special case; after the list traversal routine at &4F5C
+processes the entity pointed to by this address, it will read from
+offset 0x48 of the entity and then continue with its normal list
+traversal as if the entity pointed to by that address was the one just
+traversed. I (Sophira) am as yet unsure as to why this is important, but
+the hitbox viewer follows this code faithfully.
+
+The following is what we know about the layout of entity blocks so far,
+ordered by offset (in hex). Some of the information may be
+object-specific, such as offset 0x16; in this case, known information
+for major entities will be listed.
+
+(Note: All information is in big-endian format. Where specific bits are
+mentioned, bit 0 refers to the least-significant bit (ie. the furthest
+right in a written binary number).)
+
+* 0x00: Bitfield (2 bytes)
+    Bits  0-1: Unknown
+    Bits 2-14: Unsigned; pre-shifted offset into handler table (ROM &3C1E)
+               (possibly a permanent object ID used for level editing?)
+    Bit    15: Unknown
+* 0x02-0x11: Unknown
+* 0x12: Hitbox width (1 byte, unsigned)
+* 0x13: Hitbox height (1 byte, unsigned)
+* 0x14-0x15: Unknown
+* 0x16: Current state number (1 byte, unsigned)
+    Seems to be used in many handlers as an input to a jumptable.
+    Meaning of state likely differs per object.
+* 0x17-0x1F: Unknown
+* 0x20: X position (2 bytes, unsigned)
+* 0x22-0x23: Unknown
+* 0x24: Y position (2 bytes, unsigned)
+* 0x26-0x33: Unknown
+* 0x34: Bitfield (1 byte)
+    (note: Bits 4 and 5 below are set/cleared by the function at &411F8,
+           which is thought to only be called when determining hitbox
+           collisions.)
+    Bits 0-3: Unknown
+    Bit    4: Set if the centre of Ristar's hitbox is to the right of
+              this entity's X position; cleared otherwise.
+    Bit    5: Set if the centre of Ristar's hitbox is above or at the
+              same level as this entity's Y position; cleared
+              otherwise.
+    Bits 6-7: Unknown
+* 0x35-0x45: Unknown
+* 0x46: Next (or previous?) entity in the list (2 bytes, RAM pointer)
+* 0x48: Previous (or next/other?) entity in the list (2 bytes, RAM
+        pointer)
+* 0x4A-0x4F: Unknown
