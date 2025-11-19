@@ -1,10 +1,10 @@
 --[[
-  Ristar Hitbox Viewer, v4.5
+  Ristar Hitbox Viewer, v5
   By @Sophira (Sophie Hamilton)
 
   To use this script:
 
-  1. Open the Japanese ROM of Ristar into BizHawk. (The USA version is not currently supported by this script.)
+  1. Open your Ristar ROM in BizHawk. (This script supports all known publically-available versions.)
   2. Go to the Tools->Lua Console menu item.
   3. From the resulting window, choose Script->Open Script.
   4. Find this script and load it in.
@@ -62,10 +62,67 @@ local hitboxes = {}
 
 local entities_seen_this_frame = {}
 
--- Ristar's hitbox data is stored in ROM, so we only need to read it once; it'll never change.
+local known_roms = {
+  -- This table lists all the known versions of Ristar indexed by their
+  -- hash, as returned from gameinfo.getromhash() - which annoyingly is
+  -- sometimes the MD5 hash and sometimes the SHA-1 hash, depending on
+  -- what BizHawk's database has for the game.
+
+  -- Japanese versions
+  ["D887378BED61A5BE60664D3FE6559F78CC95D119"] = {
+    name = "Ristar Prototype (JP) - July 1, 1994",
+    ristar_hitbox_data_addr = 0x1D636,
+    handler_base = 0x3A12,
+  },
+  ["85B82470E5395E96E01A7339C81B60832EA3AB1A"] = {
+    name = "Ristar Prototype (JP) - July 18, 1994",
+    ristar_hitbox_data_addr = 0x1E7A8,
+    handler_base = 0x3B3C,
+  },
+  ["376F344F8EF5A4F8365867C9E94EFB3E"] = {
+    name = "Ristar (JP)",
+    ristar_hitbox_data_addr = 0x1E90A,
+    handler_base = 0x3C1E,
+  },
+  ["6F9DD62122960A412A52A398045EE3115569B8C9"] = {
+    name = "Ristar (JP) - Sega Forever/Genesis Mini 2/Nintendo Switch",
+    ristar_hitbox_data_addr = 0x1E90A,
+    handler_base = 0x3C1E,
+  },
+
+  -- USA/Europe versions
+  ["078846CD7A6F86C6FE71C95B1D13E89E66BD9B25"] = {
+    name = "Dexstar Prototype (UE) - August 12, 1994",
+    ristar_hitbox_data_addr = 0x1F318,
+    handler_base = 0x3B84,
+  },
+  ["A54553FFA55FBDFC43CFB61AF10CA0A79683EC75"] = {
+    name = "Dexstar Prototype (UE) - August 26, 1994",
+    ristar_hitbox_data_addr = 0x1F38A,
+    handler_base = 0x3B84,
+  },
+  ["CF0215FEDDD38F19CD2D27BFA96DD4D742BA8BF7"] = {
+    name = "Ristar (UE) - August 1994",
+    ristar_hitbox_data_addr = 0x1F38A,
+    handler_base = 0x3B84,
+  },
+  ["8AA18CC6E35CC9F019509689491DC711702472E7"] = {
+    name = "Ristar (UE) - Sega Forever/Genesis Mini 2/Nintendo Switch",
+    ristar_hitbox_data_addr = 0x1F38A,
+    handler_base = 0x3B84,
+  },
+  ["ECF9D0BAC130FED7B6A54A67D7B27DF7"] = {
+    name = "Ristar (UE) - September 1994",
+    ristar_hitbox_data_addr = 0x1F392,
+    handler_base = 0x3B84,
+  },
+}
+local thisrom = nil
+
+-- Ristar's hitbox data is stored in ROM, so we only need to read it once per ROM load; it'll never change.
 local ristar_hitbox = {}
 local function populate_hitbox_data()
-  local ristar_hitbox_base = 0x1E90A
+  local ristar_hitbox_base = thisrom.ristar_hitbox_data_addr
   for sprite = 0,31 do
     ristar_hitbox[sprite] = {
       x_offset = memory.read_s8(ristar_hitbox_base + (sprite * 4)),
@@ -187,7 +244,7 @@ local function loop_over_entities(initial, color)
     local entity_pos = delay_entity_pos(entity_base)
 
     local handler_index = mainmemory.read_u16_be(entity_base) & 0x7FFC
-    local handler_addr  = memory.read_u32_be(0x3C1E + handler_index)
+    local handler_addr  = memory.read_u32_be(thisrom.handler_base + handler_index)
 
     if entity_pos ~= nil and (entity_pos.x ~= 0 or entity_pos.y ~= 0) then
       -- read the width and height of the entity's hitbox
@@ -254,7 +311,7 @@ local function show_debug_info()
   end
   if entities_touched_num > 0 then
     gui.text(client.borderwidth() + scaled_mousex - (rel_mousex * 380),
-             client.borderheight() + scaled_mousey - (entities_touched_num * 15),
+             client.borderheight() + scaled_mousey - (entities_touched_num * 15) - 1,
              table.concat(entities_touched, "\n")
             )
   end
@@ -264,75 +321,100 @@ end
 --- # MAIN EXECUTION
 --- ############################
 
--- before we loop, we need to read hitbox data from ROM
-memory.usememorydomain("MD CART")
-populate_hitbox_data()
+local romhash = nil
 local lastframe = nil
 
 while true do
+  local newhash = gameinfo.getromhash()
+  if newhash ~= romhash and newhash ~= nil then
+    -- set things up for the newly-detected ROM
+    romhash = newhash
+    thisrom = known_roms[romhash]
+    if thisrom ~= nil then
+      console.log("Ristar Hitbox Viewer: detected ROM '" .. thisrom.name .. "'!")
+      memory.usememorydomain("MD CART")
+      populate_hitbox_data()
+    else
+      console.log("Ristar Hitbox Viewer: Unsupported ROM detected.")
+    end
+  end
+
   local thisframe = emu.framecount()
   if thisframe ~= lastframe then
     -- clear the hitboxes we currently have
     hitboxes = {}
 
-    camera = delay_camera()
+    -- check to see if we have a valid ROM loaded
+    if thisrom == nil then
+      gui.clearGraphics()
+      gui.cleartext()
+      gui.text(0, 0, "Ristar Hitbox Viewer error:")
+      gui.text(0, 15, "This ROM is not a recognised Ristar ROM variant, and")
+      gui.text(0, 30, "this script doesn't currently work with it.")
+      gui.text(0, 45, "Please let Sophira know so she can add support!")
+    else
+      camera = delay_camera()
 
-    -- ##################
-    -- Step 1: We plot Ristar's hitbox. This turns out to be quite involved;
-    --         most of the work here is done by the populate_hitbox_data and
-    --         delay_ristar functions.
+      -- ##################
+      -- Step 1: We plot Ristar's hitbox. This turns out to be quite involved;
+      --         most of the work here is done by the populate_hitbox_data and
+      --         delay_ristar functions.
 
-    -- get Ristar's delayed position, sprite and direction from the previous frame
-    local ristar = delay_ristar()
+      -- get Ristar's delayed position, sprite and direction from the previous frame
+      local ristar = delay_ristar()
 
-    if ristar.pos ~= nil then
-      -- get the correct hitbox data for the sprite in use; this was already
-      -- read by populate_hitbox_data earlier
-      local hitbox = ristar_hitbox[ristar.sprite]
-      -- Technically, no intersections happen when the sprite index is 0,
-      -- but the hitbox data for sprite 0 is all 0s anyway, so whatever.
-      -- It's still useful to see Ristar's X/Y positions.
+      if ristar.pos ~= nil then
+        -- get the correct hitbox data for the sprite in use; this was already
+        -- read by populate_hitbox_data earlier
+        local hitbox = ristar_hitbox[ristar.sprite]
+        -- Technically, no intersections happen when the sprite index is 0,
+        -- but the hitbox data for sprite 0 is all 0s anyway, so whatever.
+        -- It's still useful to see Ristar's X/Y positions.
 
-      -- if Ristar is facing left, we need to negate the hitbox X offset
-      local xoffset = hitbox.x_offset   -- duplicate the value so that we
-                                        -- don't alter the original
-      if ristar.direction == 1 then   -- left
-        xoffset = -xoffset
+        -- if Ristar is facing left, we need to negate the hitbox X offset
+        local xoffset = hitbox.x_offset   -- duplicate the value so that we
+                                          -- don't alter the original
+        if ristar.direction == 1 then   -- left
+          xoffset = -xoffset
+        end
+
+        -- draw Ristar's hitbox cross/rectangle
+        draw_hitbox(ristar.pos.x + xoffset,
+                    ristar.pos.y + hitbox.y_offset,
+                    hitbox.w_half,
+                    hitbox.h_half,
+                    ristarHitBoxColor)
       end
 
-      -- draw Ristar's hitbox cross/rectangle
-      draw_hitbox(ristar.pos.x + xoffset,
-                  ristar.pos.y + hitbox.y_offset,
-                  hitbox.w_half,
-                  hitbox.h_half,
-                  ristarHitBoxColor)
-    end
+      -- ##################
+      -- Step 2: Do the same for each entity that has an X/Y position (not <0,0>).
+      -- This is less complex in some ways, but (due to the way we loop) more complex in others.
 
-    -- ##################
-    -- Step 2: Do the same for each entity that has an X/Y position (not <0,0>).
-    -- This is less complex in some ways, but (due to the way we loop) more complex in others.
+      -- We keep track of which entities we've seen, so that we can clear out old
+      -- delayed entity positions.
+      entities_seen_this_frame = {}
 
-    -- We keep track of which entities we've seen, so that we can clear out old
-    -- delayed entity positions.
-    entities_seen_this_frame = {}
+      -- There are several lists, as it turns out!
+      loop_over_entities(0xDFF2, 0xFF0000)   -- red (mostly enemies)
+      loop_over_entities(0xDFF0, 0x00FF00)   -- green (particles, set pieces)
+      -- loop_over_entities(0xDFF6, 0xFF00FF)   -- purple (possibly HUD elements?)
+      loop_over_entities(0xDFF4, 0x00FFFF)   -- cyan (not seen any of these yet...)
+      loop_over_entities(0xDFF8, 0xFFFF00)   -- yellow (mostly secret walls, background elements)
 
-    -- There are several lists, as it turns out!
-    loop_over_entities(0xDFF2, 0xFF0000)   -- red (mostly enemies)
-    loop_over_entities(0xDFF0, 0x00FF00)   -- green (particles, set pieces)
-    -- loop_over_entities(0xDFF6, 0xFF00FF)   -- purple (possibly HUD elements?)
-    loop_over_entities(0xDFF4, 0x00FFFF)   -- cyan (not seen any of these yet...)
-    loop_over_entities(0xDFF8, 0xFFFF00)   -- yellow (mostly secret walls, background elements)
-
-    for addr, _ in pairs(delayed_entity_positions) do
-      if not entities_seen_this_frame[addr] then
-        -- It's apparently safe to delete keys while you're iterating over them in Lua. The more you know.
-        delayed_entity_positions[addr] = nil
+      for addr, _ in pairs(delayed_entity_positions) do
+        if not entities_seen_this_frame[addr] then
+          -- It's apparently safe to delete keys while you're iterating over them in Lua. The more you know.
+          delayed_entity_positions[addr] = nil
+        end
       end
+      lastframe = thisframe
     end
-    lastframe = thisframe
   end
 
-  show_debug_info()
+  if thisrom ~= nil then
+    show_debug_info()
+  end
+
   emu.yield()
 end
 
