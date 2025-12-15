@@ -1,7 +1,7 @@
 The game is built on the concept of "entities" or "objects".  These
 entities store data in one of 83 blocks (80 bytes each) in RAM from
-&FFC600 to &FFDFEE - thus, the first block is at &FFC600; the second is
-at &FFC650 (80 bytes on); the third is at &FFC6A0; etc.
+$FFC600 to $FFDFEE - thus, the first block is at $FFC600; the second is
+at $FFC650 (80 bytes on); the third is at $FFC6A0; etc.
 
 (For this document, the term "objects" will be used to refer to the
 actual element in the level data itself, and "entities" to refer to the
@@ -15,7 +15,7 @@ entity base address from an arbitrary address within that range is:
   <address> - ((<address> - 48) % 80)
 
 (Ristar himself doesn't use an entity block, instead storing 128 bytes
-of data starting at &FFC000 using a slightly different layout.)
+of data starting at $FFC000 using a slightly different layout.)
 
 From what has been gathered so far, objects in the game that can have
 any kind of interaction, or animations that happen over time, will be
@@ -33,21 +33,21 @@ Entities seem to be in one of five linked lists. The starting (or
 ending?) block of each of these lists is pointed to by these five RAM
 addresses (2 bytes each):
 
-&FFDFF0: This list contains mainly particles and set pieces. Green in
+$FFDFF0: This list contains mainly particles and set pieces. Green in
          the hitbox viewer.
-&FFDFF2: This list contains mainly enemies. Red in the hitbox viewer.
-&FFDFF4: No objects have been seen that end up on this list yet,
+$FFDFF2: This list contains mainly enemies. Red in the hitbox viewer.
+$FFDFF4: No objects have been seen that end up on this list yet,
          although there does exist valid entity data. More investigation
          needed. Cyan in the hitbox viewer.
-&FFDFF6: This list seems to contain HUD elements. Formerly purple in the
+$FFDFF6: This list seems to contain HUD elements. Formerly purple in the
          hitbox viewer, but not shown currently.
-&FFDFF8: This list contains mainly secret walls and background
+$FFDFF8: This list contains mainly secret walls and background
          animations. Yellow in the hitbox viewer.
 
 Note that the list descriptions are only a general overview; sometimes
 entities show up in lists you don't expect!
 
-&FFDFFA is a special case; after the list traversal routine at &4F5C
+$FFDFFA is a special case; after the list traversal routine at $004F5C
 processes the entity pointed to by this address, it will read from
 offset 0x48 of the entity and then continue with its normal list
 traversal as if the entity pointed to by that address was the one just
@@ -65,7 +65,7 @@ right in a written binary number).)
 
 * 0x00: Bitfield (2 bytes)
     Bits  0-1: Unknown
-    Bits 2-14: Unsigned; pre-shifted offset into handler table (ROM &3C1E)
+    Bits 2-14: Unsigned; pre-shifted offset into handler table (ROM $003C1E)
                (possibly a permanent object ID used for level editing?)
     Bit    15: Unknown
 * 0x02-0x11: Unknown
@@ -83,9 +83,9 @@ right in a written binary number).)
 * 0x24: Y position (2 bytes, unsigned)
 * 0x26-0x33: Unknown
 * 0x34: Bitfield (1 byte)
-    (note: Bits 4 and 5 below are set/cleared by the function at &411F8,
-           which is thought to only be called when determining hitbox
-           collisions.)
+    (note: Bits 4 and 5 below are set/cleared by the function at
+           $0411F8, which is thought to only be called when determining
+           hitbox collisions.)
     Bits 0-3: Unknown
     Bit    4: Set if the centre of Ristar's hitbox is to the right of
               this entity's X position; cleared otherwise.
