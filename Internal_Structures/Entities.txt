@@ -75,7 +75,9 @@ right in a written binary number).)
 * 0x16: Current state number (1 byte, unsigned)
     Seems to be used in many handlers as an input to a jumptable.
     Meaning of state likely differs per object.
-* 0x17-0x1F: Unknown
+* 0x17-0x1B: Unknown
+* 0x1C: X movement/velocity (2 bytes, signed)
+* 0x1E: Y movement/velocity (2 bytes, signed)
 * 0x20: X position (2 bytes, unsigned)
 * 0x22-0x23: Unknown
 * 0x24: Y position (2 bytes, unsigned)
@@ -96,3 +98,9 @@ right in a written binary number).)
 * 0x48: Previous (or next/other?) entity in the list (2 bytes, RAM
         pointer)
 * 0x4A-0x4F: Unknown
+
+Notes:
+* The X and Y velocity values (0x1C, 0x1E) are used by a function that
+  applies these values to the X/Y position of the entity and is called
+  by the handler that governs that entity. In the JP version of the
+  game, this function is located at $005406.
