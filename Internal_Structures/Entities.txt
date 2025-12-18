@@ -78,10 +78,9 @@ right in a written binary number).)
 * 0x17-0x1B: Unknown
 * 0x1C: X movement/velocity (2 bytes, signed)
 * 0x1E: Y movement/velocity (2 bytes, signed)
-* 0x20: X position (2 bytes, unsigned)
-* 0x22-0x23: Unknown
-* 0x24: Y position (2 bytes, unsigned)
-* 0x26-0x33: Unknown
+* 0x20: X position (4 bytes, signed)
+* 0x24: Y position (4 bytes, signed)
+* 0x28-0x33: Unknown
 * 0x34: Bitfield (1 byte)
     (note: Bits 4 and 5 below are set/cleared by the function at
            $0411F8, which is thought to only be called when determining
