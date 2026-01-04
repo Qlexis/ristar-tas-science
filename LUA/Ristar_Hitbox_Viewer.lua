@@ -1,5 +1,5 @@
 --[[
-  Ristar Hitbox Viewer, v5
+  Ristar Hitbox Viewer, v5.5
   By @Sophira (Sophie Hamilton)
 
   To use this script:
@@ -50,6 +50,24 @@ local hitboxTransparency = 128   -- 0 = fully transparent, 255 = fully opaque
 -- "PLEASE NOTE" comment above for more information.
 local debugEnabled = false
 local debugList = 0xDFF2
+
+-- Some entities in the game have no defined position - they have a
+-- position of <0, 0> - but still have associated handler code. By
+-- default these are skipped, but you can include them by setting
+-- skipZeroPosition to false, in which case they will show up in the
+-- debugEnabled output.
+local skipZeroPosition = true
+
+-- You can overlay the handler ID for each entity encountered on top of
+-- the entity itself. To do so, set debugHandlerOverlay (below) to true.
+-- This is primarily intended for people helping to fill out the handler
+-- spreadsheet:
+-- https://docs.google.com/spreadsheets/d/1mnPA7ideO3tqmob55_39v5vr9L7T8RsrsOuuk0QDVN8/edit
+--
+-- For now, please *only* fill in that spreadsheet if you are using the
+-- ROM detected as "Ristar (JP)" in the Lua console upon loading this
+-- script!
+local debugHandlerOverlay = false
 -- ===== End of changeable variables.
 
 local delayed_ristar = {}
@@ -123,16 +141,17 @@ local thisrom = nil
 local ristar_hitbox = {}
 local function populate_hitbox_data()
   local ristar_hitbox_base = thisrom.ristar_hitbox_data_addr
-  for sprite = 0,31 do
-    ristar_hitbox[sprite] = {
-      x_offset = memory.read_s8(ristar_hitbox_base + (sprite * 4)),
-      y_offset = memory.read_s8(ristar_hitbox_base + (sprite * 4) + 1),
-      w_half   = memory.read_s8(ristar_hitbox_base + (sprite * 4) + 2),
-      h_half   = memory.read_s8(ristar_hitbox_base + (sprite * 4) + 3)
+  for hitbox = 0,31 do
+    ristar_hitbox[hitbox] = {
+      x_offset = memory.read_s8(ristar_hitbox_base + (hitbox * 4)),
+      y_offset = memory.read_s8(ristar_hitbox_base + (hitbox * 4) + 1),
+      w_half   = memory.read_s8(ristar_hitbox_base + (hitbox * 4) + 2),
+      h_half   = memory.read_s8(ristar_hitbox_base + (hitbox * 4) + 3)
     }
   end
 end
 
+-- Function to draw a hitbox and to add it to the list of clickable hitboxes
 local function draw_hitbox(x, y, w_half, h_half, color, debuginfo)
   if camera ~= nil then   -- all hitboxes have a delayed camera position and we might not have one yet
     local window_x = x - camera.x
@@ -143,23 +162,31 @@ local function draw_hitbox(x, y, w_half, h_half, color, debuginfo)
     local width    = w_half * 2 - 2
     local height   = h_half * 2 - 2
 
+    local bordercolor = color | 0xFF000000
+    local fillcolor = color | (hitboxTransparency << 24)
+
+    -- draw the cross at the centre
     gui.drawLine(window_x - crossSize, window_y,
                  window_x + crossSize, window_y,
-                 color | 0xFF000000)
+                 bordercolor)
     gui.drawLine(window_x, window_y - crossSize,
                  window_x, window_y + crossSize,
-                 color | 0xFF000000)
+                 bordercolor)
+
+    -- draw the hitbox itself
     gui.drawRectangle(origin_x, origin_y, width, height,
-                      color | 0xFF000000, color | (hitboxTransparency << 24))
+                      bordercolor, fillcolor)
 
     table.insert(hitboxes, { origin_x = origin_x,
                              origin_y = origin_y,
                              width = width,
                              height = height,
+                             color = color,
                              debuginfo = debuginfo })
   end
 end
 
+-- Returns the camera position from the previous time this function was called.
 local function delay_camera()
   -- Camera position
   local cam_x = mainmemory.read_s16_be(0xF020)
@@ -173,6 +200,7 @@ local function delay_camera()
   return result
 end
 
+-- Returns Ristar's position, hitbox number and direction from the previous time this function was called.
 local function delay_ristar()
   -- Ristar's information is always stored at 0xC000.
   local ristar_base = 0xC000
@@ -187,14 +215,14 @@ local function delay_ristar()
   end
   delayed_ristar.position = { x = ristar_x, y = ristar_y }
 
-  -- Ristar's sprite number
-  local ristar_sprite = mainmemory.read_u8(ristar_base + 0x4)
+  -- Ristar's hitbox number
+  local ristar_hitbox = mainmemory.read_u8(ristar_base + 0x4)
 
-  local result_sprite = nil
-  if delayed_ristar.sprite ~= nil then
-    result_sprite = delayed_ristar.sprite
+  local result_hitbox = nil
+  if delayed_ristar.hitbox ~= nil then
+    result_hitbox = delayed_ristar.hitbox
   end
-  delayed_ristar.sprite = ristar_sprite
+  delayed_ristar.hitbox = ristar_hitbox
 
   -- Ristar's direction
   local ristar_bitfield = mainmemory.read_u8(ristar_base + 0x2)
@@ -211,9 +239,10 @@ local function delay_ristar()
   end
   delayed_ristar.direction = ristar_direction
 
-  return { pos = result_pos, sprite = result_sprite, direction = result_direction }
+  return { pos = result_pos, hitbox = result_hitbox, direction = result_direction }
 end
 
+-- Returns a given entity's position from the previous time this function was called.
 local function delay_entity_pos(entity_base)
   -- Entity's X/Y position
   local entity_x = mainmemory.read_s16_be(entity_base + 0x20)
@@ -228,6 +257,8 @@ local function delay_entity_pos(entity_base)
   return result
 end
 
+-- Loop over the entity list pointed to by the first argument, drawing each hitbox
+-- in the colour specified by the second argument.
 local function loop_over_entities(initial, color)
   local entity_base = mainmemory.read_u16_be(initial)
 
@@ -246,7 +277,7 @@ local function loop_over_entities(initial, color)
     local handler_index = mainmemory.read_u16_be(entity_base) & 0x7FFC
     local handler_addr  = memory.read_u32_be(thisrom.handler_base + handler_index)
 
-    if entity_pos ~= nil and (entity_pos.x ~= 0 or entity_pos.y ~= 0) then
+    if entity_pos ~= nil and (skipZeroPosition == false or (entity_pos.x ~= 0 or entity_pos.y ~= 0)) then
       -- read the width and height of the entity's hitbox
       local entity_hitbox_w_half = mainmemory.read_s8(entity_base + 0x12)
       local entity_hitbox_h_half = mainmemory.read_s8(entity_base + 0x13)
@@ -274,6 +305,20 @@ local function loop_over_entities(initial, color)
   end
 end
 
+-- Brightens a given hex colour by the amount specified (where 1.0 = 100%).
+local function brighten_color(color, brighten_by)
+  local r = (color & 0x00FF0000) >> 16
+  local g = (color & 0x0000FF00) >> 8
+  local b = (color & 0x000000FF)
+  r = math.floor(r + ((255 - r) * brighten_by) + 0.5)
+  g = math.floor(g + ((255 - g) * brighten_by) + 0.5)
+  b = math.floor(b + ((255 - b) * brighten_by) + 0.5)
+  return ((color & 0xFF000000) |
+          r << 16 | g << 8 | b)
+end
+
+-- Uses the data saved by draw_hitbox to draw debug text for each entity encountered.
+-- Also draws the text when a hitbox is clicked on.
 local function show_debug_info()
   local mouse = input.getmouse()
   local aspectx = (client.screenwidth() - (client.borderwidth() * 2)) / client.bufferwidth()
@@ -291,11 +336,20 @@ local function show_debug_info()
   for i, hitbox in ipairs(hitboxes) do
     local info = hitbox.debuginfo
     if info then
+      local textcolor = brighten_color(hitbox.color | 0xFF000000, 0.7)
+
       if debugEnabled then
-        if debugList == info.initial and info.entity_pos ~= nil then
+        if (debugList == info.initial) and (info.entity_pos ~= nil) then
           entityNum = entityNum + 1
-          gui.text(0, entityNum * 15, string.format("%04X: <%d, %d> :: handler %04X -> &%08X", info.entity_base, info.entity_pos.x, info.entity_pos.y, info.handler_index, info.handler_addr))
+          gui.text(0, entityNum * 15, string.format("%04X: <%d, %d> :: handler %03X -> $%06X", info.entity_base, info.entity_pos.x, info.entity_pos.y, info.handler_index, info.handler_addr))
         end
+      end
+
+      if debugHandlerOverlay == true and camera ~= nil then
+        gui.text((info.entity_pos.x - camera.x + 2) * aspectx,
+                 (info.entity_pos.y - camera.y + 2) * aspecty,
+                 string.format("%03X", info.handler_index),
+                 textcolor)
       end
 
       -- if the mouse is within the hitbox and being clicked, show debug information
@@ -304,7 +358,7 @@ local function show_debug_info()
           (mouse.X <= hitbox.origin_x + hitbox.width) and
           (mouse.Y >= hitbox.origin_y) and
           (mouse.Y <= hitbox.origin_y + hitbox.height)) then
-        table.insert(entities_touched, string.format("(%04X) %04X: handler %04X -> &%08X", info.initial, info.entity_base, info.handler_index, info.handler_addr))
+        table.insert(entities_touched, string.format("(%04X) %04X: handler %03X -> $%06X", info.initial, info.entity_base, info.handler_index, info.handler_addr))
         entities_touched_num = entities_touched_num + 1
       end
     end
@@ -326,7 +380,7 @@ local lastframe = nil
 
 while true do
   local newhash = gameinfo.getromhash()
-  if newhash ~= romhash and newhash ~= nil then
+  if (newhash ~= romhash) and (newhash ~= nil) then
     -- set things up for the newly-detected ROM
     romhash = newhash
     thisrom = known_roms[romhash]
@@ -360,15 +414,16 @@ while true do
       --         most of the work here is done by the populate_hitbox_data and
       --         delay_ristar functions.
 
-      -- get Ristar's delayed position, sprite and direction from the previous frame
+      -- get Ristar's delayed position, hitbox number and direction from the
+      -- previous frame
       local ristar = delay_ristar()
 
       if ristar.pos ~= nil then
-        -- get the correct hitbox data for the sprite in use; this was already
-        -- read by populate_hitbox_data earlier
-        local hitbox = ristar_hitbox[ristar.sprite]
-        -- Technically, no intersections happen when the sprite index is 0,
-        -- but the hitbox data for sprite 0 is all 0s anyway, so whatever.
+        -- get the correct hitbox data; this was already read by
+        -- populate_hitbox_data earlier
+        local hitbox = ristar_hitbox[ristar.hitbox]
+        -- Technically, no intersections happen when the hitbox index is 0,
+        -- but the hitbox data for hitbox 0 is all 0s anyway, so whatever.
         -- It's still useful to see Ristar's X/Y positions.
 
         -- if Ristar is facing left, we need to negate the hitbox X offset
