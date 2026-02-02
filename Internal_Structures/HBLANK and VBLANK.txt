@@ -1,0 +1,43 @@
+[This document is written using the JP release ROM as reference; other versions
+ of the ROM may do things differently.]
+
+The game doesn't use much in the way of interrupt handlers (most of them point
+to a do-nothing infinite loop, so that any errors will cause the game to
+freeze), but it *does* use HBLANK and VBLANK.
+
+In addition, the game sets custom VBLANK and HBLANK interrupt handlers depending
+on what it's doing at the time, but it does this in different ways:
+
+* For HBLANK, the game's header points to a location in RAM ($FFEA70). The only
+  reason for code to execute in RAM is so that the code can be self-modifying,
+  and that's exactly what happens:
+
+  1. On reset, $4EF94538 (jmp $00004538.l) is written. (The routine at $004538
+     is a no-op, simply returning upon being called.)
+  2. The first two bytes ($4EF9, jmp [operand].l) remain the same for the rest
+     of the game, allowing addresses to be written directly into $FFEA72 when a
+     new HBLANK handler is required.
+
+* For VBLANK, the header points to $00431E in ROM, but after some initial setup
+  and common code that runs, that routine reads the value of $FFEA8C and jumps
+  to the location it points to, allowing for custom VBLANK routines to be set by
+  writing a new address there.
+
+These facilities are taken advantage of throughout the code, but notably so at
+the start of a level. Near the end of the level-start code, the routine at
+$008EB8 is called to install custom interrupt handlers for the level. This
+routine does the following:
+
+1. Firstly, the current map number is read from $FFE57D.
+
+2. This map number is then used as a byte offset into the table at $008ED6. The
+   resulting byte (which I'll call "interrupt_handler_index") indicates which
+   set of HBLANK/VBLANK routines should be installed for that level.
+
+3. The code then multiplies the interrupt_handler_index value by 8 and uses the
+   resulting value as a byte offset into the table at $008EFE. The 8 bytes
+   contained at that location are split as follows:
+   * The first four bytes are a pointer to the custom HBLANK routine, which is
+     written to $FFEA72.
+   * The last four bytes are a pointer to the custom VBLANK routine, which is
+     written to $FFEA8C.
