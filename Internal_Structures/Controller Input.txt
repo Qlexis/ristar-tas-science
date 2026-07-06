@@ -1,0 +1,86 @@
+Controller inputs in Ristar are handled at a high level by the routine at
+$004572, which calls another routine at $00458A twice - once for the P1
+controller and once for the P2 controller. This routine calls $0045CE to
+normalise the button inputs depending on the button mapping selected in the
+settings.
+
+(The high-level routine at $004572 is normally called once per frame.
+ Occasionally - generally for a brief moment before a level starts - it will be
+ called twice in a single frame. As this is the exception rather than the rule,
+ the descriptions below will generally say "this frame" for clarity.)
+
+Controller inputs are stored at the following locations:
+
+* P1 controller:
+  * $FFEA3A: normalised (mapping-independent)
+  * $FFEA3B: normalised (mapping-independent), buttons pressed this frame
+  * $FFEA3C: raw
+  * $FFEA3D: raw, buttons pressed this frame
+
+* P2 controller:
+  * $FFEA3E: normalised (mapping-independent)
+  * $FFEA3F: normalised (mapping-independent), buttons pressed this frame
+  * $FFEA40: raw
+  * $FFEA41: raw, buttons pressed this frame
+
+Each of these bytes is a bitfield representing buttons. The bits in each
+normalised byte can be read as follows:
+
+* Bit #0 (0x01): Up
+* Bit #1 (0x02): Down
+* Bit #2 (0x04): Left
+* Bit #3 (0x08): Right
+* Bit #4 (0x10): Grab
+* Bit #5 (0x20): Jump
+* Bit #6 (0x40): Jump 2 (only used with the default mapping - see below)
+* Bit #7 (0x80): Start
+
+The bits in each raw byte can be read as follows:
+
+* Bit #0 (0x01): Up
+* Bit #1 (0x02): Down
+* Bit #2 (0x04): Left
+* Bit #3 (0x08): Right
+* Bit #4 (0x10): B
+* Bit #5 (0x20): C
+* Bit #6 (0x40): A
+* Bit #7 (0x80): Start
+
+(The reason for the odd B/C/A ordering is due to the way the Genesis reads from
+ the controller - it's impossible to read all buttons in one go, so the A/Start
+ buttons are read first, followed by the others.)
+
+The bits in the "buttons pressed this frame" locations are only true if the
+corresponding input went from an 'up' position to a 'down' position when the
+controller was read.
+
+Controller mappings
+===================
+
+The current controller mapping setting is stored at $FFFE01:
+
+* 0: Default mapping
+* 1: Alternate mapping
+
+Under the default mapping, the raw inputs are not modified before being placed
+in the normalised bytes - ie. the inputs are mapped as follows:
+
+* B => Grab (0x10)
+* C => Jump (0x20)
+* A => Jump 2 (0x40)
+
+Under the alternate mapping, the normalised inputs are mapped as follows:
+
+* B => Jump (0x20)
+* C => Grab (0x10)
+* A => Grab (0x10)
+
+Notice that when the alternate mapping is selected, A and C both map onto "Grab"
+(0x10); there is no separate "Grab 2".
+
+As a result of this, it is possible for the "'Grab' button pressed this frame"
+bit to be set on every frame by alternating A/C when using the alternate
+mapping, which would not otherwise be possible (and is indeed not possible using
+the default mapping, where the same inputs would switch between the "Jump" and
+"Jump 2" bits). I (Sophira) haven't yet found a use for this, but it could be a
+potential avenue for glitches.
