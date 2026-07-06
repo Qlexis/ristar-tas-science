@@ -1,3 +1,6 @@
+[This document is written using the JP release ROM as reference; other versions
+ of the ROM may do things differently.]
+
 Controller inputs in Ristar are handled at a high level by the routine at
 $004572, which calls another routine at $00458A twice - once for the P1
 controller and once for the P2 controller. This routine calls $0045CE to
