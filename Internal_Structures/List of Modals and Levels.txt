@@ -1,0 +1,181 @@
+The game seems to have a modular system whereby any cutscene, menu or level can
+be triggered to play at any time. This system isn't fully understood yet, but
+this is my (Sophira's) attempt to document what I know so far.
+
+(Note: Cutscenes and menus are treated as the same thing by the game. For this
+       reason, this document will also group them together as "modals" - things
+       that require the player's attention.)
+
+The system seems to revolve around three memory locations:
+
+($FFEA00) (2 bytes): This is the game's high-level "game state" variable,
+                   pre-shifted to the left by 2, and is used in a number of
+                   ways, but notably by the main game loop to decide on a high
+                   level which section of code to pass control to, according to
+                   the address table at ($003BBE). Most of the game is spent
+                   with this value at either $000C (Level) or $0054 (Modal).
+
+                   Values are as follows (unknowns are marked with ???):
+
+  $0000 = ??? (unused by main game loop)
+  $0004 = ??? (unused by main game loop)
+  $0008 = Game start (or pre-level)
+  $000C = Level (includes intro card and bonus areas)
+  $0010 = ??? (unused by main game loop)
+  $0014 = ??? (unused by main game loop)
+  $0018 = ??? (unused by main game loop)
+  $001C = ??? (unused by main game loop)
+  $0020 = ??? (unused by main game loop)
+  $0024 = ??? (unused by main game loop)
+  $0028 = ??? (unused by main game loop)
+  $002C = ??? (unused by main game loop)
+  $0030 = ??? (unused by main game loop)
+  $0034 = ??? (unused by main game loop)
+  $0038 = ???
+  $003C = ??? (unused by main game loop)
+  $0040 = ??? (unused by main game loop)
+  $0044 = ??? (unused by main game loop)
+  $0048 = ???
+  $004C = ???
+  $0050 = Main game loop has just started
+  $0054 = Modal (menus, cutscenes, etc)
+  $0058 = ???
+  $005C = ???
+
+($FFEA02) (2 bytes): This seems to be a "substate" variable; the meaning of this
+                     variable can differ depending on the value of ($FFEA00)
+                     above. By reading it along with the state variable, you can
+                     find out the status of any playing cutscene, menu or level.
+                     From casual observation, the values seem to map as follows
+                     (although this list is not complete):
+
+ ($FFEA00) | ($FFEA02) |
+     State |  Substate | Description
+-----------+-----------+-----------------------
+     $000C |     $0000 | A level is initialising.
+           |           | (Note: During this time, ($FFE57D) may not be correct)
+     $000C |     $0001 | A level intro card is being prepared.
+     $000C |     $0002 | A level intro card is showing.
+     $000C |     $0003 | A level is being prepared.
+     $000C |     $0004 | A level is fading in.
+     $000C |     $0005 | A level is being played.
+     $000C |     $0006 | A level is fading out.
+     $000C |     $0007 | A round (set of three levels) is ending.
+     $000C |     $0008 | (ditto?)
+     $000C |     $0009 | Last level has ended.
+     $000C |     $000E | (*) A bonus area is being prepared.
+     $000C |     $000F | (*) A bonus area is fading in.
+     $000C |     $0010 | (*) A bonus area is being played.
+-----------+-----------+-----------------------
+     $0054 |     $0000 | A modal is initialising.
+           |           | (Note: During this time, ($FFE57D) may not be correct)
+     $0054 |     $0001 | A modal is currently playing.
+     $0054 |     $0002 | A modal has finished playing.
+
+                   Other values exist, but I haven't yet mapped them out
+                   (although a cheat code on TCRF sets the substate value to
+                   $000D, which seems to trigger an old level select mechanism).
+
+                   The bonus area substates marked with a (*) use a different
+                   value for ($FFE57D) compared to the level itself - see the
+                   list at the end of this document.
+
+($FFE57D) (1 byte): Ths identifies either a modal or a level. The index numbers
+                    for each overlap, so you must use another method (such as
+                    reading ($FFEA00)/($FFEA02), above) to determine whether
+                    this memory location refers to a modal number or a level
+                    number. A complete list of all modal and level numbers can
+                    be found at the end of this document.
+
+=====
+
+MODAL NUMBERS
+
+a (*) at the beginning of an entry indicates that this modal does not change
+the current music being played and may rely on a previous music track
+continuing to play.
+
+$00 =     Opening cutscene part 1
+$01 = (*) Opening cutscene part 2
+$02 = (*) Opening cutscene part 3
+$03 = (*) Menu screen cutscene (Ristar flies in and flips up onto the logo)
+$04 =     Sega logo
+$05 = (*) World interstitial (Ristar flies to next world as scores tick down;
+                              might need the correct palette loaded)
+$06 =     Credits part 2 (Next Cruise)
+$07 =     Sound Test
+$08 =     Pre-credits cutscene ("Hasta la vista, baby!")
+$09 =     Credits part 1 (Star Humming)
+$0A = (*) Post-credits cutscene (Ristar appears to the bosses)
+$0B = (*) "Next Area" screen (doesn't affect next level)
+$0C =     Level Select (doesn't affect next level)
+$0D =     Continue screen (slight audio glitch at start)
+$0E =     Game Over!!
+$0F =     Passwords
+$10 =     Boss Rush (doesn't affect next level)
+$11 =     Valdi System (normally reached from VALDI password)
+
+LEVEL NUMBERS
+
+$00 = 1-1 (Flora 1)
+$01 = 1-2 (Flora 2)
+$02 = 1-3 (Riho)
+$03 = 2-1 (Undertow 1)
+$04 = 2-2 (Undertow 2)
+$05 = 2-3 (Ohsat)
+$06 = 3-1 (Scorch 1)
+$07 = 3-2 (Scorch 2)
+$08 = 3-3 (Adahan)
+$09 = 4-1 (Sonata 1)
+$0A = 4-2 (Sonata 2)
+$0B = 4-3 (Awaueck)
+$0C = 5-1 (Freon 1)
+$0D = 5-2 (Freon 2)
+$0E = 5-3 (Itamor)
+$0F = 6-1 (Automaton 1)
+$10 = 6-2 (Automaton 2)
+$11 = 6-3 (Uranim)
+$12 = 7-1 (Castle Greedy)
+$13 = 7-2 (Inosis)
+$14 = 7-3 (Kaiser Greedy)
+
+(Note: Although $FFE57D is kept updated with the following 'level numbers' in
+       Automaton 2, they're used internally within Automaton 2's level code and
+       attempting to jump to any level that's greater than or equal to $15 will
+       instead jump to $10.)
+
+$15 = Automaton 2 Room 01
+$16 = Automaton 2 Room 06
+$17 = Automaton 2 Room 02
+$18 = Automaton 2 Room 12
+$19 = Automaton 2 Room 04
+$1A = Automaton 2 Room 03
+$1B = Automaton 2 Room 08
+$1C = Automaton 2 Room 05
+$1D = Automaton 2 Room 15 (fork)
+$1E = Automaton 2 Room 10 (fork)
+$1F = Automaton 2 Room 09
+$20 = ???
+$21 = Automaton 2 Room 14
+$22 = Automaton 2 Room 11
+$23 = Automaton 2 Room 16 (end of level, has a path back to $1D)
+$24 = Automaton 2 Room 10b (alternate path from $1E, extra life room, leads to $22)
+$25 = Automaton 2 Room 13
+$26 = Automaton 2 Room 15b (alternate path from $1D, bonus star handle room, leads to $23)
+$27 = Automaton 2 Room 07
+
+(Note: The below 'levels' are actually bonus areas and are only valid with
+       substates $000E-$0010.)
+
+$28 = 1-1 (Flora 1) bonus area
+$29 = 1-2 (Flora 2) bonus area
+$2A = 2-1 (Undertow 1) bonus area
+$2B = 2-2 (Undertow 2) bonus area
+$2C = 3-1 (Scorch 1) bonus area
+$2D = 3-2 (Scorch 2) bonus area
+$2E = 4-1 (Sonata 1) bonus area
+$2F = 4-2 (Sonata 2) bonus area
+$30 = 5-1 (Freon 1) bonus area
+$31 = 5-2 (Freon 2) bonus area
+$32 = 6-1 (Automaton 1) bonus area
+$33 = 6-2 (Automaton 2) bonus area
